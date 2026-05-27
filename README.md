@@ -50,14 +50,10 @@ Or connect your GitHub repo to Vercel for automatic deployments on push.
 
 ## Technology Stack
 
-- **Next.js 14** - React framework with React 18
-- **TypeScript** - Type safety and type definitions
-- **Tailwind CSS** - Utility-first CSS styling
-- **React Hooks** - Client-side state management
-
-## Build Status
-
-Latest build: Production-ready (Next.js deployment)
+- **Next.js 14** - React framework
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Styling
+- **React Hooks** - State management
 
 ## License
 
