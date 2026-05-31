@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prior Authorization Copilot - Clinical Decision Support</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+
+        .card h2 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #333;
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .autocomplete-list {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            max-height: 200px;
+            overflow-y: auto;
+            width: calc(100% - 24px);
+            z-index: 1000;
+            border-radius: 0 0 6px 6px;
+        }
+
+        .autocomplete-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.selected {
+            background: #f5f5f5;
+            color: #667eea;
+        }
+
+        .form-group.relative {
+            position: relative;
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+
+        .panel ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .panel li {
+            margin: 6px 0;
+            color: #555;
+            line-height: 1.4;
+        }
+
+        .panel li:before {
+            content: "▪ ";
+            color: #667eea;
+            margin-right: 6px;
+            font-weight: bold;
+        }
+
+        .score-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .score-box {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .score-approve {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .score-risk {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .score-deny {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .score-value {
+            font-size: 24px;
+            margin: 5px 0;
+        }
+
+        .score-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .risk-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .risk-high {
+            background: #dc3545;
+        }
+
+        .risk-medium {
+            background: #ffc107;
+        }
+
+        .risk-low {
+            background: #28a745;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #dee2e6;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .note-section {
+            margin-top: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            resize: vertical;
+            min-height: 200px;
+            line-height: 1.5;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .side-panels {
+            display: grid;
+            gap: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 60px;
+            height: 60px;
+            margin-bottom: 15px;
+            opacity: 0.3;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .tag {
+            display: inline-block;
+            background: #e9ecef;
+            color: #666;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-right: 4px;
+            margin-bottom: 4px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-imaging {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .badge-medication {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .badge-procedure {
+            background: #fde7e9;
+            color: #842029;
+        }
+
+        .success-message {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .disclaimer {
+            background: #f0f0f0;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #666;
+            margin-top: 20px;
+            line-height: 1.5;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .tab {
+            padding: 10px 15px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #999;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🧠 Prior Authorization Copilot</h1>
+            <p>Clinical Decision Support for Prior Authorization Planning</p>
+        </div>
+
+        <!-- Success Message -->
+        <div class="success-message" id="successMsg">
+            ✓ Justification note copied to clipboard
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-grid">
+            <!-- Left Panel: Request Details -->
+            <div class="card">
+                <h2>Request Details</h2>
+
+                <div class="form-group">
+                    <label>Service Type</label>
+                    <select id="serviceType" onchange="onServiceTypeChange()">
+                        <option value="">Select Service Type</option>
+                        <option value="imaging">Imaging</option>
+                        <option value="medication">Medication</option>
+                        <option value="procedure">Procedure</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Service Name</label>
+                    <select id="serviceName" onchange="onServiceChange()">
+                        <option value="">Select Service</option>
+                    </select>
+                </div>
+
+                <div class="form-group relative">
+                    <label>Diagnosis (ICD-10)</label>
+                    <input type="text" id="diagnosis" placeholder="E.g., M54.5 (Back pain)" oninput="onDiagnosisInput()">
+                    <div class="autocomplete-list" id="diagnosisList" style="display:none;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Patient Age</label>
+                    <input type="text" id="patientAge" placeholder="Age" oninput="updateAnalysis()">
+                </div>
+
+                <div class="form-group">
+                    <label>Prior Conservative Care</label>
+                    <textarea id="conservativeCare" placeholder="Document any conservative treatments attempted..." oninput="updateAnalysis()" style="min-height:80px;"></textarea>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-secondary" onclick="clearForm()">Clear</button>
+                    <button class="btn-primary" onclick="updateAnalysis()">Analyze</button>
+                </div>
+            </div>
+
+            <!-- Right Panel: Guidance & Panels -->
+            <div class="side-panels">
+                <!-- Clinical Prompts -->
+                <div class="card">
+                    <h2>🎯 Clinical Red Flags</h2>
+                    <div id="prompts">
+                        <div class="empty-state">Select a service to see clinical red flags</div>
+                    </div>
+                </div>
+
+                <!-- Missing Information -->
+                <div class="card">
+                    <h2>⚠️ Missing Documentation</h2>
+                    <div id="missing">
+                        <div class="empty-state">Select a service to see requirements</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Score & Risk Analysis -->
+        <div class="card">
+            <h2>Approval Probability Score</h2>
+            <div class="score-container">
+                <div class="score-box score-approve">
+                    <div class="score-label">Likely Approved</div>
+                    <div class="score-value" id="scoreApprove">0%</div>
+                </div>
+                <div class="score-box score-risk">
+                    <div class="score-label">Requires Prior Auth</div>
+                    <div class="score-value" id="scoreRisk">0%</div>
+                </div>
+                <div class="score-box score-deny">
+                    <div class="score-label">High Denial Risk</div>
+                    <div class="score-value" id="scoreDeny">0%</div>
+                </div>
+            </div>
+
+            <!-- Denial Risk Details -->
+            <div style="margin-top: 15px;">
+                <h3 style="font-size: 14px; color: #333; margin-bottom: 10px;">Key Denial Reasons:</h3>
+                <div id="denialReasons">
+                    <div class="empty-state" style="padding: 10px;">Select a service to analyze denial risk</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clinical Justification Note -->
+        <div class="card note-section">
+            <h2>📝 Clinical Justification Note</h2>
+            <p style="color: #666; font-size: 13px; margin-bottom: 12px;">Auto-generated note for inclusion in prior authorization request:</p>
+            <textarea id="justificationNote" readonly></textarea>
+            <div class="button-group" style="margin-top: 12px;">
+                <button class="btn-primary" onclick="copyToClipboard()">📋 Copy to Clipboard</button>
+                <button class="btn-secondary" onclick="downloadNote()">⬇️ Download as TXT</button>
+            </div>
+        </div>
+
+        <!-- Disclaimer -->
+        <div class="disclaimer">
+            <strong>⚠️ Clinical Disclaimer:</strong> This tool provides clinical decision support based on general guidelines. It is not a substitute for clinical judgment. All prior authorization requests must be reviewed and signed by the responsible provider. Insurance coverage decisions are made by the patient's insurance plan based on their specific policy terms.
+        </div>
+    </div>
+
+    <script>
+        // ============ COMPREHENSIVE CONDITION DATABASE ============
+
+        const CONDITIONS = {
+            imaging: {
+                "MRI Brain": {
+                    icd10: ["R51", "G89", "G43"],
+                    category: "imaging",
+                    prompts: [
+                        "Abnormal or focal neurologic exam findings?",
+                        "New or progressive headache in patient >50 years?",
+                        "Thunderclap onset (worst headache of life)?",
+                        "Papilledema or signs of increased ICP?",
+                        "History of cancer or immunocompromised?",
+                        "Trauma with loss of consciousness?",
+                        "Progressive neurologic decline?",
+                        "Gait disturbance or balance issues?"
+                    ],
+                    missing: [
+                        "No red flag symptoms documented",
+                        "No focal neurologic deficits noted",
+                        "Timeline of symptom progression unclear",
+                        "No exam findings documented"
+                    ],
+                    denialReasons: [
+                        "Imaging for non-specific headache without red flags",
+                        "Insufficient documentation of neurologic exam",
+                        "Recurrent imaging without change in clinical status",
+                        "Headache without focal neurologic findings"
+                    ],
+                    baseScore: 50
+                },
+
+                "MRI Lumbar Spine": {
+                    icd10: ["M54.5", "M51", "M48"],
+                    category: "imaging",
+                    prompts: [
+                        "Radiculopathy with pain radiating below knee?",
+                        "Progressive weakness or neurologic deficit?",
+                        "Numbness, tingling in dermatomal distribution?",
+                        "Failed conservative care >6 weeks?",
+                        "Failed NSAIDs, physical therapy, epidural steroid injection?",
+                        "Positive radicular signs (Lasègue/Kernig)?",
+                        "Foot drop or lower extremity weakness?"
+                    ],
+                    missing: [
+                        "No documentation of conservative care trial",
+                        "No physical examination findings",
+                        "No imaging indication documented",
+                        "No timeline of symptom duration"
+                    ],
+                    denialReasons: [
+                        "MRI lumbar spine denied without conservative care",
+                        "Imaging for simple back pain without radiculopathy",
+                        "Lack of neurologic deficits documented",
+                        "Insufficient trial of physical therapy"
+                    ],
+                    baseScore: 45
+                },
+
+                "MRI Cervical Spine": {
+                    icd10: ["M54.2", "M50", "M47"],
+                    category: "imaging",
+                    prompts: [
+                        "Radiculopathy with arm pain/weakness?",
+                        "Myelopathy symptoms (gait disturbance, clumsiness)?",
+                        "Progressive neurologic deficits?",
+                        "Failed conservative management?",
+                        "Physical exam positive for nerve root tension signs?",
+                        "Upper extremity weakness in dermatomal pattern?"
+                    ],
+                    missing: [
+                        "No cervical spine exam documented",
+                        "No neurologic deficits noted",
+                        "No conservative care trial documented"
+                    ],
+                    denialReasons: [
+                        "Neck pain without radiculopathy or myelopathy",
+                        "MRI denied without failed conservative care",
+                        "Lack of objective neurologic findings"
+                    ],
+                    baseScore: 45
+                },
+
+                "CT Abdomen/Pelvis": {
+                    icd10: ["R10", "N39", "K59"],
+                    category: "imaging",
+                    prompts: [
+                        "Acute abdominal pain or distention?",
+                        "Fever, elevated WBC, acute presentation?",
+                        "Palpable mass or organomegaly on exam?",
+                        "Suspected appendicitis, diverticulitis, obstruction?",
+                        "Hematuria or genitourinary symptoms?",
+                        "Persistent diarrhea with systemic symptoms?"
+                    ],
+                    missing: [
+                        "No abdominal exam findings documented",
+                        "Indication for imaging unclear",
+                        "No labs (WBC, lipase) documented"
+                    ],
+                    denialReasons: [
+                        "Imaging denied without acute presentation",
+                        "Non-specific abdominal pain without findings",
+                        "Lack of objective findings or labs"
+                    ],
+                    baseScore: 60
+                },
+
+                "Chest X-ray": {
+                    icd10: ["R05", "R06", "R07"],
+                    category: "imaging",
+                    prompts: [
+                        "Persistent cough >2 weeks or worsening?",
+                        "Fever with respiratory symptoms?",
+                        "Dyspnea on exertion or at rest?",
+                        "Chest pain pleuritic or positional?",
+                        "Abnormal auscultatory findings?",
+                        "Hemoptysis or productive cough?"
+                    ],
+                    missing: [
+                        "No respiratory exam documented",
+                        "No vital signs or pulse ox documented",
+                        "Symptom duration unclear"
+                    ],
+                    denialReasons: [
+                        "Routine screening without symptoms",
+                        "Cleared cough without objective findings"
+                    ],
+                    baseScore: 70
+                }
+            },
+
+            medication: {
+                "GLP-1 Receptor Agonist (Ozempic, Wegovy, Mounjaro)": {
+                    icd10: ["E66", "E11", "E10"],
+                    category: "medication",
+                    prompts: [
+                        "BMI ≥30 (obese) or ≥27 with comorbidities?",
+                        "Failed lifestyle modification program?",
+                        "Failed or contraindicated to other weight-loss meds?",
+                        "Comorbidities: HTN, DM2, OSA, GERD, Joint disease?",
+                        "Is this for established diabetes (E11) indication?",
+                        "No contraindications: medullary cancer, MEN2?"
+                    ],
+                    missing: [
+                        "BMI not documented",
+                        "No weight loss history documented",
+                        "No documentation of failed lifestyle intervention",
+                        "No baseline labs (HbA1c if diabetic)"
+                    ],
+                    denialReasons: [
+                        "Obesity treatment denied without BMI documentation",
+                        "No prior weight loss attempts documented",
+                        "GLP-1 denied for non-diabetic without comorbidities",
+                        "Missing documentation of failed therapies"
+                    ],
+                    baseScore: 50
+                },
+
+                "SGLT2 Inhibitor (Empagliflozin, Dapagliflozin)": {
+                    icd10: ["E11", "I50", "I12"],
+                    category: "medication",
+                    prompts: [
+                        "Type 2 diabetes diagnosed?",
+                        "Heart failure (HFrEF) diagnosis?",
+                        "CKD with albuminuria documented?",
+                        "Failed metformin monotherapy?",
+                        "eGFR documented and >20?",
+                        "No recurrent UTIs or genital infections?"
+                    ],
+                    missing: [
+                        "No recent HbA1c documented",
+                        "No eGFR or creatinine documented",
+                        "No diabetes duration documented",
+                        "No comorbidities documented"
+                    ],
+                    denialReasons: [
+                        "Denied without documented diabetes",
+                        "Missing renal function testing",
+                        "No evidence of disease progression"
+                    ],
+                    baseScore: 65
+                },
+
+                "Biologic DMARD (Adalimumab, Etanercept, Infliximab)": {
+                    icd10: ["M05", "M06", "M07"],
+                    category: "medication",
+                    prompts: [
+                        "Rheumatoid arthritis or other autoimmune condition?",
+                        "Failed conventional DMARD (methotrexate)?",
+                        "Disease activity documented despite conventional therapy?",
+                        "Elevated inflammatory markers (RF, anti-CCP, ESR/CRP)?",
+                        "Documented poor prognostic features?",
+                        "No active infection or TB?"
+                    ],
+                    missing: [
+                        "No rheumatologic diagnosis confirmed",
+                        "No failure of conventional DMARD documented",
+                        "No inflammatory markers documented",
+                        "No disease activity assessment"
+                    ],
+                    denialReasons: [
+                        "Biologic denied without DMARD failure",
+                        "Lack of documented disease activity",
+                        "Missing inflammatory markers",
+                        "Insufficient trial of conventional therapy"
+                    ],
+                    baseScore: 40
+                },
+
+                "ADHD Medication (Stimulant)": {
+                    icd10: ["F90"],
+                    category: "medication",
+                    prompts: [
+                        "ADHD diagnosis confirmed by specialist?",
+                        "Failed non-stimulant first?",
+                        "Symptom severity documented (inattention, impulsivity)?",
+                        "Symptoms present before age 12?",
+                        "Functional impairment documented (school, work)?",
+                        "No contraindications: cardiac disease, glaucoma?"
+                    ],
+                    missing: [
+                        "No formal ADHD diagnosis documented",
+                        "No baseline vitals or cardiac assessment",
+                        "No description of functional impairment"
+                    ],
+                    denialReasons: [
+                        "Stimulant denied without specialist confirmation",
+                        "Lack of trial of non-stimulant first",
+                        "Missing baseline cardiac evaluation",
+                        "Insufficient documentation of impairment"
+                    ],
+                    baseScore: 35
+                },
+
+                "Asthma Biologic (Omalizumab, Reslizumab)": {
+                    icd10: ["J45"],
+                    category: "medication",
+                    prompts: [
+                        "Moderate-to-severe persistent asthma?",
+                        "Failed high-dose inhaled corticosteroid + LABA?",
+                        "Allergic or eosinophilic phenotype documented?",
+                        "Recent exacerbations despite optimal therapy?",
+                        "IgE level or eosinophil count documented?",
+                        "No uncontrolled comorbidities (GERD, sinusitis)?"
+                    ],
+                    missing: [
+                        "No pulmonary function tests documented",
+                        "No exacerbation history documented",
+                        "No asthma action plan documented"
+                    ],
+                    denialReasons: [
+                        "Biologic denied without high-dose ICS/LABA failure",
+                        "Missing eosinophil or IgE levels",
+                        "Lack of documented exacerbations"
+                    ],
+                    baseScore: 40
+                }
+            },
+
+            procedure: {
+                "Epidural Steroid Injection": {
+                    icd10: ["M54.5", "M51"],
+                    category: "procedure",
+                    prompts: [
+                        "Radiculopathy or significant leg pain?",
+                        "Failed conservative care 4-6 weeks?",
+                        "Imaging-confirmed nerve root compression?",
+                        "Positive neurologic signs (radicular pain, reflex change)?",
+                        "Patient willing and able to participate in PT?"
+                    ],
+                    missing: [
+                        "No imaging results documented",
+                        "No physical therapy trial documented",
+                        "No neurologic exam findings"
+                    ],
+                    denialReasons: [
+                        "Denied without failed conservative care",
+                        "Non-specific back pain without radiculopathy",
+                        "Missing imaging findings"
+                    ],
+                    baseScore: 65
+                },
+
+                "Knee Arthroscopy": {
+                    icd10: ["M17", "M19"],
+                    category: "procedure",
+                    prompts: [
+                        "Mechanical symptoms (locking, catching)?",
+                        "Failed conservative care with PT and NSAIDs?",
+                        "Imaging findings of meniscal tear or articular cartilage damage?",
+                        "Significant functional limitation?",
+                        "Significant joint effusion on imaging?"
+                    ],
+                    missing: [
+                        "No imaging (MRI) documented",
+                        "No physical therapy trial documented",
+                        "No mechanical symptoms documented"
+                    ],
+                    denialReasons: [
+                        "Arthroscopy denied for simple OA without mechanical symptoms",
+                        "Lack of imaging findings",
+                        "Insufficient conservative care trial"
+                    ],
+                    baseScore: 50
+                },
+
+                "Rotator Cuff Repair": {
+                    icd10: ["M75.1", "M75.2"],
+                    category: "procedure",
+                    prompts: [
+                        "Rotator cuff tear confirmed on imaging?",
+                        "Failed conservative care 3-6 months?",
+                        "Significant functional limitation in ADLs?",
+                        "Failed physical therapy and NSAIDs?",
+                        "Full-thickness tear (vs. partial)?"
+                    ],
+                    missing: [
+                        "No imaging findings documented",
+                        "No physical therapy documentation",
+                        "No assessment of tear size/location"
+                    ],
+                    denialReasons: [
+                        "Surgery denied without failed conservative care",
+                        "Missing imaging confirmation of tear",
+                        "Partial tear with adequate conservative treatment"
+                    ],
+                    baseScore: 45
+                }
+            }
+        };
+
+        // ============ ICD-10 LOOKUP DATABASE ============
+
+        const ICD10_CODES = {
+            "R51": { desc: "Headache", group: "neurologic" },
+            "R51.1": { desc: "Tension-type headache", group: "neurologic" },
+            "R51.9": { desc: "Headache, unspecified", group: "neurologic" },
+            "G43": { desc: "Migraine", group: "neurologic" },
+            "G43.0": { desc: "Migraine without aura", group: "neurologic" },
+            "G43.1": { desc: "Migraine with aura", group: "neurologic" },
+            "G89": { desc: "Pain, unspecified", group: "neurologic" },
+            "M54.5": { desc: "Low back pain", group: "musculoskeletal" },
+            "M51": { desc: "Lumbar disc disorders", group: "musculoskeletal" },
+            "M51.1": { desc: "Lumbar radiculopathy", group: "musculoskeletal" },
+            "M54.2": { desc: "Cervicalgia (neck pain)", group: "musculoskeletal" },
+            "M50": { desc: "Cervical disc disorders", group: "musculoskeletal" },
+            "M47": { desc: "Spondylosis (cervical)", group: "musculoskeletal" },
+            "M48": { desc: "Spondylosis (lumbar)", group: "musculoskeletal" },
+            "R10": { desc: "Abdominal pain", group: "GI" },
+            "R10.1": { desc: "Pain localized to upper abdomen", group: "GI" },
+            "R10.3": { desc: "Pain localized to other parts of lower abdomen", group: "GI" },
+            "N39": { desc: "Other urinary symptoms", group: "GU" },
+            "K59": { desc: "Diarrhea", group: "GI" },
+            "R05": { desc: "Fever", group: "systemic" },
+            "R06": { desc: "Abnormalities of breathing", group: "respiratory" },
+            "R07": { desc: "Chest pain", group: "cardiac" },
+            "E66": { desc: "Obesity", group: "endocrine" },
+            "E66.0": { desc: "Obesity due to excess calories", group: "endocrine" },
+            "E66.1": { desc: "Drug-induced obesity", group: "endocrine" },
+            "E11": { desc: "Type 2 diabetes mellitus", group: "endocrine" },
+            "E10": { desc: "Type 1 diabetes mellitus", group: "endocrine" },
+            "E11.2": { desc: "Type 2 diabetes with kidney complications", group: "endocrine" },
+            "F90": { desc: "Attention-deficit/hyperactivity disorder (ADHD)", group: "psychiatric" },
+            "F90.1": { desc: "ADHD, predominantly inattentive type", group: "psychiatric" },
+            "F90.2": { desc: "ADHD, predominantly hyperactive type", group: "psychiatric" },
+            "J45": { desc: "Asthma", group: "respiratory" },
+            "J45.4": { desc: "Unspecified asthma with exacerbation", group: "respiratory" },
+            "J45.9": { desc: "Asthma, unspecified", group: "respiratory" },
+            "M05": { desc: "Rheumatoid arthritis", group: "rheumatologic" },
+            "M06": { desc: "Other specified inflammatory polyarthropathies", group: "rheumatologic" },
+            "M07": { desc: "Psoriatic and enteropathic arthropathies", group: "rheumatologic" },
+            "I50": { desc: "Heart failure", group: "cardiac" },
+            "I12": { desc: "Hypertensive chronic kidney disease", group: "renal" },
+            "M17": { desc: "Osteoarthritis of knee", group: "musculoskeletal" },
+            "M19": { desc: "Osteoarthritis, other", group: "musculoskeletal" },
+            "M75.1": { desc: "Rotator cuff tear", group: "musculoskeletal" },
+            "M75.2": { desc: "Bicipital tendinitis", group: "musculoskeletal" }
+        };
+
+        // ============ UI INITIALIZATION ============
+
+        function onServiceTypeChange() {
+            const type = document.getElementById("serviceType").value;
+            const serviceSelect = document.getElementById("serviceName");
+            serviceSelect.innerHTML = '<option value="">Select Service</option>';
+
+            if (type && CONDITIONS[type]) {
+                Object.keys(CONDITIONS[type]).forEach(service => {
+                    const option = document.createElement("option");
+                    option.value = service;
+                    option.textContent = service;
+                    serviceSelect.appendChild(option);
+                });
+            }
+        }
+
+        function onServiceChange() {
+            updateAnalysis();
+        }
+
+        function onDiagnosisInput() {
+            const input = document.getElementById("diagnosis").value.toUpperCase();
+            const list = document.getElementById("diagnosisList");
+
+            if (input.length === 0) {
+                list.style.display = "none";
+                return;
+            }
+
+            const matches = Object.entries(ICD10_CODES)
+                .filter(([code, data]) => code.includes(input) || data.desc.toUpperCase().includes(input))
+                .slice(0, 8);
+
+            if (matches.length === 0) {
+                list.style.display = "none";
+                return;
+            }
+
+            list.innerHTML = matches.map(([code, data]) =>
+                `<div class="autocomplete-item" onclick="selectDiagnosis('${code}', '${data.desc}')">${code} - ${data.desc}</div>`
+            ).join("");
+            list.style.display = "block";
+        }
+
+        function selectDiagnosis(code, desc) {
+            document.getElementById("diagnosis").value = code + " (" + desc + ")";
+            document.getElementById("diagnosisList").style.display = "none";
+            updateAnalysis();
+        }
+
+        function updateAnalysis() {
+            const type = document.getElementById("serviceType").value;
+            const service = document.getElementById("serviceName").value;
+
+            if (!type || !service) {
+                resetAnalysis();
+                return;
+            }
+
+            const condition = CONDITIONS[type][service];
+            if (!condition) return;
+
+            // Update panels
+            document.getElementById("prompts").innerHTML = condition.prompts.length > 0 ?
+                "<ul>" + condition.prompts.map(p => `<li>${p}</li>`).join("") + "</ul>" :
+                "<div class='empty-state'>No prompts available</div>";
+
+            document.getElementById("missing").innerHTML = condition.missing.length > 0 ?
+                "<ul>" + condition.missing.map(m => `<li>${m}</li>`).join("") + "</ul>" :
+                "<div class='empty-state'>No requirements</div>";
+
+            document.getElementById("denialReasons").innerHTML = condition.denialReasons.length > 0 ?
+                "<ul>" + condition.denialReasons.map(r => `<li>${r}</li>`).join("") + "</ul>" :
+                "<div class='empty-state'>No denial reasons</div>";
+
+            // Calculate scores
+            calculateScores(condition);
+
+            // Generate justification note
+            generateJustificationNote(condition);
+        }
+
+        function calculateScores(condition) {
+            const conservativeCare = document.getElementById("conservativeCare").value.length > 0 ? 15 : 0;
+            const diagnosis = document.getElementById("diagnosis").value.length > 0 ? 10 : 0;
+
+            let approveScore = condition.baseScore + conservativeCare + diagnosis;
+            let riskScore = 100 - approveScore - 10;
+            let denyScore = 10;
+
+            // Adjust based on service type
+            if (document.getElementById("serviceType").value === "medication") {
+                if (conservativeCare === 0) denyScore += 15;
+            }
+
+            // Cap values
+            approveScore = Math.min(100, Math.max(0, approveScore));
+            riskScore = Math.min(100, Math.max(0, riskScore));
+            denyScore = Math.min(100, Math.max(0, denyScore));
+
+            // Normalize to 100%
+            const total = approveScore + riskScore + denyScore;
+            if (total > 0) {
+                approveScore = Math.round((approveScore / total) * 100);
+                riskScore = Math.round((riskScore / total) * 100);
+                denyScore = 100 - approveScore - riskScore;
+            }
+
+            document.getElementById("scoreApprove").textContent = approveScore + "%";
+            document.getElementById("scoreRisk").textContent = riskScore + "%";
+            document.getElementById("scoreDeny").textContent = denyScore + "%";
+        }
+
+        function generateJustificationNote(condition) {
+            const service = document.getElementById("serviceName").value;
+            const diagnosis = document.getElementById("diagnosis").value;
+            const age = document.getElementById("patientAge").value;
+            const conservativeCare = document.getElementById("conservativeCare").value;
+
+            const note = `PRIOR AUTHORIZATION CLINICAL JUSTIFICATION
+===============================================
+
+Service Requested: ${service}
+Diagnosis: ${diagnosis}
+Patient Age: ${age || "Not specified"}
+Date of Request: ${new Date().toLocaleDateString()}
+
+CLINICAL INDICATION:
+${conservativeCare || "Documentation of clinical indication and conservative care attempt"}
+
+MEDICAL NECESSITY:
+This request is medically necessary and appropriate for the following reasons:
+
+• The requested service meets clinical criteria for the diagnosis
+• Conservative management has been attempted or documented as inappropriate
+• Patient has failed or is contraindicated to standard therapies
+• Clinical findings support the need for this service
+
+SUPPORTING DOCUMENTATION:
+• Detailed history and physical examination
+• Diagnostic findings (laboratory, imaging, etc.)
+• Documentation of conservative care attempt
+• Specialist evaluation and recommendations
+
+RISK OF DELAY:
+Denial or delay of this service may result in:
+• Continued functional impairment
+• Disease progression
+• Delayed diagnosis and treatment
+
+CONCLUSION:
+Based on the clinical information provided, we respectfully request approval for ${service}.
+
+Provider Signature: _______________________
+Date: ${new Date().toLocaleDateString()}`;
+
+            document.getElementById("justificationNote").value = note;
+        }
+
+        function copyToClipboard() {
+            const note = document.getElementById("justificationNote");
+            note.select();
+            document.execCommand("copy");
+
+            const msg = document.getElementById("successMsg");
+            msg.classList.add("show");
+            setTimeout(() => msg.classList.remove("show"), 2000);
+        }
+
+        function downloadNote() {
+            const note = document.getElementById("justificationNote").value;
+            const blob = new Blob([note], { type: "text/plain" });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "prior-auth-justification.txt";
+            a.click();
+        }
+
+        function clearForm() {
+            document.getElementById("serviceType").value = "";
+            document.getElementById("serviceName").value = "";
+            document.getElementById("diagnosis").value = "";
+            document.getElementById("patientAge").value = "";
+            document.getElementById("conservativeCare").value = "";
+            resetAnalysis();
+        }
+
+        function resetAnalysis() {
+            document.getElementById("prompts").innerHTML = '<div class="empty-state">Select a service to see clinical red flags</div>';
+            document.getElementById("missing").innerHTML = '<div class="empty-state">Select a service to see requirements</div>';
+            document.getElementById("denialReasons").innerHTML = '<div class="empty-state">Select a service to analyze denial risk</div>';
+            document.getElementById("scoreApprove").textContent = "0%";
+            document.getElementById("scoreRisk").textContent = "0%";
+            document.getElementById("scoreDeny").textContent = "0%";
+            document.getElementById("justificationNote").value = "";
+        }
+
+        // ============ INITIALIZATION ============
+
+        window.addEventListener("DOMContentLoaded", () => {
+            resetAnalysis();
+        });
+    </script>
+</body>
+
+</html>
