@@ -406,6 +406,17 @@
             display: block;
         }
 
+        .payer-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
         .disclaimer {
             background: #f0f0f0;
             border-left: 4px solid #667eea;
@@ -469,6 +480,33 @@
             <!-- Left Panel: Request Details -->
             <div class="card">
                 <h2>Request Details</h2>
+
+                <div class="form-group">
+                    <label>Insurance Payer</label>
+                    <select id="payer" onchange="updateAnalysis()">
+                        <option value="">Select Payer</option>
+                        <option value="medicare">Medicare</option>
+                        <option value="medicare_advantage">Medicare Advantage</option>
+                        <option value="empire">Empire BCBS</option>
+                        <option value="fidelis">Fidelis</option>
+                        <option value="mvp">MVP</option>
+                        <option value="commercial">Commercial</option>
+                        <option value="medicaid">Medicaid</option>
+                        <option value="uhc">UHC</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Plan Type</label>
+                    <select id="planType" onchange="updateAnalysis()">
+                        <option value="">Select Plan Type</option>
+                        <option value="commercial">Commercial</option>
+                        <option value="medicaid">Medicaid</option>
+                        <option value="medicare">Medicare</option>
+                        <option value="medicare_advantage">Medicare Advantage</option>
+                    </select>
+                </div>
 
                 <div class="form-group">
                     <label>Service Type</label>
@@ -574,6 +612,105 @@
     </div>
 
     <script>
+        // ============ PAYER PROFILES DATABASE ============
+
+        const PAYER_PROFILES = {
+            medicare: {
+                name: "Medicare",
+                strictness: "high",
+                avgApprovalTime: "14 days",
+                rules: {
+                    "MRI Brain": "Requires documented red flags; strong neurologic justification needed",
+                    "MRI Lumbar Spine": "Requires 6+ weeks conservative care; imaging-confirmed disk abnormality",
+                    "Wegovy": "DOES NOT COVER weight loss medications",
+                    "GLP-1 Receptor Agonist": "Only covered for diabetes; obesity treatment not covered",
+                    "Biologic DMARD": "Requires documented DMARD failure; needs inflammatory markers"
+                },
+                scoreAdjustment: -5
+            },
+            medicare_advantage: {
+                name: "Medicare Advantage",
+                strictness: "high",
+                avgApprovalTime: "7-10 days",
+                rules: {
+                    "MRI Brain": "Plan-specific - verify coverage; typically requires red flags",
+                    "Wegovy": "Some plans cover; requires BMI + comorbidities documentation",
+                    "GLP-1 Receptor Agonist": "Varies by plan - check formulary first"
+                },
+                scoreAdjustment: 0
+            },
+            empire: {
+                name: "Empire BCBS",
+                strictness: "medium",
+                avgApprovalTime: "5-7 days",
+                rules: {
+                    "MRI Brain": "Generally approves with clinical justification",
+                    "GLP-1 Receptor Agonist": "Covers for diabetes; obesity requires BMI >35 + comorbidity",
+                    "Biologic DMARD": "Requires DMARD failure documentation"
+                },
+                scoreAdjustment: 5
+            },
+            fidelis: {
+                name: "Fidelis",
+                strictness: "medium",
+                avgApprovalTime: "5-7 days",
+                rules: {
+                    "MRI Lumbar Spine": "Requires 4+ weeks conservative care",
+                    "Wegovy": "Limited coverage - requires strict documentation"
+                },
+                scoreAdjustment: 0
+            },
+            mvp: {
+                name: "MVP",
+                strictness: "medium",
+                avgApprovalTime: "3-5 days",
+                rules: {
+                    "MRI Brain": "Approves with clinical indication",
+                    "Epidural Steroid Injection": "Typically approved; requires imaging"
+                },
+                scoreAdjustment: 5
+            },
+            commercial: {
+                name: "Commercial",
+                strictness: "medium",
+                avgApprovalTime: "5-7 days",
+                rules: {
+                    "GLP-1 Receptor Agonist": "Covers obesity treatment with BMI + comorbidities",
+                    "ADHD Medication": "Requires specialist confirmation"
+                },
+                scoreAdjustment: 10
+            },
+            medicaid: {
+                name: "Medicaid",
+                strictness: "high",
+                avgApprovalTime: "10-14 days",
+                rules: {
+                    "Wegovy": "Most states do NOT cover; coverage varies",
+                    "GLP-1 Receptor Agonist": "Very limited coverage; state-dependent",
+                    "Biologic DMARD": "Requires documented DMARD failure"
+                },
+                scoreAdjustment: -10
+            },
+            uhc: {
+                name: "UHC",
+                strictness: "high",
+                avgApprovalTime: "7-10 days",
+                rules: {
+                    "MRI Brain": "Commonly denies without documented red flags",
+                    "MRI Lumbar Spine": "Requires 6+ weeks conservative care",
+                    "Wegovy": "Limited coverage for obesity"
+                },
+                scoreAdjustment: -5
+            },
+            other: {
+                name: "Other",
+                strictness: "medium",
+                avgApprovalTime: "7-10 days",
+                rules: {},
+                scoreAdjustment: 0
+            }
+        };
+
         // ============ COMPREHENSIVE CONDITION DATABASE ============
 
         const CONDITIONS = {
@@ -597,12 +734,12 @@
                         "Timeline of symptom progression unclear",
                         "No exam findings documented"
                     ],
-                    denialReasons: [
-                        "Imaging for non-specific headache without red flags",
-                        "Insufficient documentation of neurologic exam",
-                        "Recurrent imaging without change in clinical status",
-                        "Headache without focal neurologic findings"
-                    ],
+                    denialReasons: {
+                        default: ["Imaging for non-specific headache without red flags", "Insufficient documentation of neurologic exam"],
+                        medicare: ["Medicare requires strong red flag documentation", "No emergency department evaluation documented"],
+                        uhc: ["UHC commonly denies without focal neurologic findings", "Lack of specialist evaluation"],
+                        commercial: ["Red flag symptoms not adequately documented"]
+                    },
                     baseScore: 50
                 },
 
@@ -624,12 +761,12 @@
                         "No imaging indication documented",
                         "No timeline of symptom duration"
                     ],
-                    denialReasons: [
-                        "MRI lumbar spine denied without conservative care",
-                        "Imaging for simple back pain without radiculopathy",
-                        "Lack of neurologic deficits documented",
-                        "Insufficient trial of physical therapy"
-                    ],
+                    denialReasons: {
+                        default: ["Imaging for simple back pain without radiculopathy", "Insufficient trial of physical therapy"],
+                        medicare: ["Medicare requires 6+ weeks conservative care before imaging", "No documented failed epidural steroid injection"],
+                        uhc: ["UHC denies without 6+ weeks conservative care", "Lack of documented neurologic deficit"],
+                        commercial: ["Insufficient conservative care trial documented"]
+                    },
                     baseScore: 45
                 },
 
@@ -723,12 +860,13 @@
                         "No documentation of failed lifestyle intervention",
                         "No baseline labs (HbA1c if diabetic)"
                     ],
-                    denialReasons: [
-                        "Obesity treatment denied without BMI documentation",
-                        "No prior weight loss attempts documented",
-                        "GLP-1 denied for non-diabetic without comorbidities",
-                        "Missing documentation of failed therapies"
-                    ],
+                    denialReasons: {
+                        default: ["Obesity treatment denied without BMI documentation", "No prior weight loss attempts documented"],
+                        medicare: ["❌ MEDICARE DOES NOT COVER weight loss medications", "Only covers for diabetes indication (type 2, established)"],
+                        medicaid: ["Medicaid coverage varies by state - HIGH DENIAL RISK", "Check state formulary before submitting"],
+                        uhc: ["Limited coverage for obesity treatment", "Requires strict documentation of failed prior therapies"],
+                        commercial: ["BMI documentation and comorbidities required", "Failed lifestyle intervention documentation needed"]
+                    },
                     baseScore: 50
                 },
 
@@ -749,11 +887,11 @@
                         "No diabetes duration documented",
                         "No comorbidities documented"
                     ],
-                    denialReasons: [
-                        "Denied without documented diabetes",
-                        "Missing renal function testing",
-                        "No evidence of disease progression"
-                    ],
+                    denialReasons: {
+                        default: ["Denied without documented diabetes", "Missing renal function testing"],
+                        medicare: ["Medicare covers for diabetes; check specific indication"],
+                        commercial: ["Missing documentation of failed metformin"]
+                    },
                     baseScore: 65
                 },
 
@@ -774,12 +912,12 @@
                         "No inflammatory markers documented",
                         "No disease activity assessment"
                     ],
-                    denialReasons: [
-                        "Biologic denied without DMARD failure",
-                        "Lack of documented disease activity",
-                        "Missing inflammatory markers",
-                        "Insufficient trial of conventional therapy"
-                    ],
+                    denialReasons: {
+                        default: ["Lack of documented disease activity", "Missing inflammatory markers"],
+                        medicare: ["Medicare requires 2-3 months DMARD failure before biologic"],
+                        commercial: ["Biologic denied without documented DMARD failure"],
+                        uhc: ["UHC requires recent inflammatory markers and DMARD trial"]
+                    },
                     baseScore: 40
                 },
 
@@ -799,12 +937,11 @@
                         "No baseline vitals or cardiac assessment",
                         "No description of functional impairment"
                     ],
-                    denialReasons: [
-                        "Stimulant denied without specialist confirmation",
-                        "Lack of trial of non-stimulant first",
-                        "Missing baseline cardiac evaluation",
-                        "Insufficient documentation of impairment"
-                    ],
+                    denialReasons: {
+                        default: ["Insufficient documentation of impairment", "Missing baseline cardiac evaluation"],
+                        commercial: ["Stimulant denied without specialist confirmation"],
+                        uhc: ["UHC requires psychological testing documentation"]
+                    },
                     baseScore: 35
                 },
 
@@ -824,11 +961,11 @@
                         "No exacerbation history documented",
                         "No asthma action plan documented"
                     ],
-                    denialReasons: [
-                        "Biologic denied without high-dose ICS/LABA failure",
-                        "Missing eosinophil or IgE levels",
-                        "Lack of documented exacerbations"
-                    ],
+                    denialReasons: {
+                        default: ["Missing eosinophil or IgE levels", "Lack of documented exacerbations"],
+                        medicare: ["Medicare covers biologic asthma therapy with proper documentation"],
+                        commercial: ["Biologic denied without high-dose ICS/LABA failure"]
+                    },
                     baseScore: 40
                 }
             },
@@ -849,11 +986,11 @@
                         "No physical therapy trial documented",
                         "No neurologic exam findings"
                     ],
-                    denialReasons: [
-                        "Denied without failed conservative care",
-                        "Non-specific back pain without radiculopathy",
-                        "Missing imaging findings"
-                    ],
+                    denialReasons: {
+                        default: ["Non-specific back pain without radiculopathy", "Missing imaging findings"],
+                        medicare: ["Medicare covers epidural steroid injections with proper documentation"],
+                        commercial: ["Requires imaging confirmation of nerve root compression"]
+                    },
                     baseScore: 65
                 },
 
@@ -872,11 +1009,11 @@
                         "No physical therapy trial documented",
                         "No mechanical symptoms documented"
                     ],
-                    denialReasons: [
-                        "Arthroscopy denied for simple OA without mechanical symptoms",
-                        "Lack of imaging findings",
-                        "Insufficient conservative care trial"
-                    ],
+                    denialReasons: {
+                        default: ["Lack of imaging findings", "Insufficient conservative care trial"],
+                        commercial: ["Arthroscopy denied for OA without mechanical symptoms"],
+                        medicare: ["Medicare denies arthroscopy for simple OA"]
+                    },
                     baseScore: 50
                 },
 
@@ -895,11 +1032,11 @@
                         "No physical therapy documentation",
                         "No assessment of tear size/location"
                     ],
-                    denialReasons: [
-                        "Surgery denied without failed conservative care",
-                        "Missing imaging confirmation of tear",
-                        "Partial tear with adequate conservative treatment"
-                    ],
+                    denialReasons: {
+                        default: ["Missing imaging confirmation of tear", "Partial tear with adequate conservative treatment"],
+                        commercial: ["Surgery denied without failed conservative care"],
+                        medicare: ["Medicare requires 3+ months failed conservative care"]
+                    },
                     baseScore: 45
                 }
             }
@@ -1007,6 +1144,7 @@
         function updateAnalysis() {
             const type = document.getElementById("serviceType").value;
             const service = document.getElementById("serviceName").value;
+            const payer = document.getElementById("payer").value;
 
             if (!type || !service) {
                 resetAnalysis();
@@ -1025,9 +1163,20 @@
                 "<ul>" + condition.missing.map(m => `<li>${m}</li>`).join("") + "</ul>" :
                 "<div class='empty-state'>No requirements</div>";
 
-            document.getElementById("denialReasons").innerHTML = condition.denialReasons.length > 0 ?
-                "<ul>" + condition.denialReasons.map(r => `<li>${r}</li>`).join("") + "</ul>" :
+            // Get payer-specific denial reasons
+            const denialReasons = condition.denialReasons[payer] || condition.denialReasons.default || condition.denialReasons;
+            const denialList = Array.isArray(denialReasons) ? denialReasons : (denialReasons.default || []);
+
+            document.getElementById("denialReasons").innerHTML = denialList.length > 0 ?
+                "<ul>" + denialList.map(r => `<li>${r}</li>`).join("") + "</ul>" :
                 "<div class='empty-state'>No denial reasons</div>";
+
+            // Add payer badge if selected
+            if (payer) {
+                const payerProfile = PAYER_PROFILES[payer];
+                const payerInfo = `<div class="payer-badge">📋 ${payerProfile.name} (${payerProfile.strictness} scrutiny)</div>`;
+                document.getElementById("denialReasons").innerHTML = payerInfo + document.getElementById("denialReasons").innerHTML;
+            }
 
             // Calculate scores
             calculateScores(condition);
@@ -1037,17 +1186,36 @@
         }
 
         function calculateScores(condition) {
+            const payer = document.getElementById("payer").value;
             const conservativeCare = document.getElementById("conservativeCare").value.length > 0 ? 15 : 0;
             const diagnosis = document.getElementById("diagnosis").value.length > 0 ? 10 : 0;
 
             let approveScore = condition.baseScore + conservativeCare + diagnosis;
-            let riskScore = 100 - approveScore - 10;
             let denyScore = 10;
+
+            // Apply payer-specific adjustment
+            const payerProfile = PAYER_PROFILES[payer];
+            if (payerProfile) {
+                approveScore += payerProfile.scoreAdjustment;
+            }
 
             // Adjust based on service type
             if (document.getElementById("serviceType").value === "medication") {
                 if (conservativeCare === 0) denyScore += 15;
+                // Special handling for GLP-1/Wegovy
+                const service = document.getElementById("serviceName").value;
+                if (service.includes("GLP-1") || service.includes("Wegovy")) {
+                    if (payer === "medicare") {
+                        denyScore = 85;
+                        approveScore = 5;
+                    } else if (payer === "medicaid") {
+                        denyScore = 70;
+                        approveScore = 10;
+                    }
+                }
             }
+
+            let riskScore = 100 - approveScore - denyScore;
 
             // Cap values
             approveScore = Math.min(100, Math.max(0, approveScore));
@@ -1072,6 +1240,11 @@
             const diagnosis = document.getElementById("diagnosis").value;
             const age = document.getElementById("patientAge").value;
             const conservativeCare = document.getElementById("conservativeCare").value;
+            const payer = document.getElementById("payer").value;
+            const planType = document.getElementById("planType").value;
+
+            const payerProfile = PAYER_PROFILES[payer];
+            const payerInfo = payerProfile ? `Insurance Payer: ${payerProfile.name}\nPlan Type: ${planType}` : "";
 
             const note = `PRIOR AUTHORIZATION CLINICAL JUSTIFICATION
 ===============================================
@@ -1079,6 +1252,7 @@
 Service Requested: ${service}
 Diagnosis: ${diagnosis}
 Patient Age: ${age || "Not specified"}
+${payerInfo}
 Date of Request: ${new Date().toLocaleDateString()}
 
 CLINICAL INDICATION:
@@ -1091,6 +1265,12 @@ This request is medically necessary and appropriate for the following reasons:
 • Conservative management has been attempted or documented as inappropriate
 • Patient has failed or is contraindicated to standard therapies
 • Clinical findings support the need for this service
+
+INSURANCE PLAN REQUIREMENTS:
+Based on ${payerProfile?.name || "the selected insurance plan"}, the following documentation has been provided:
+• Medical necessity documentation per plan requirements
+• Appropriate clinical indicators for the service
+• Documentation of failed conservative/prior therapies where applicable
 
 SUPPORTING DOCUMENTATION:
 • Detailed history and physical examination
@@ -1105,7 +1285,7 @@ Denial or delay of this service may result in:
 • Delayed diagnosis and treatment
 
 CONCLUSION:
-Based on the clinical information provided, we respectfully request approval for ${service}.
+Based on the clinical information provided and in accordance with ${payerProfile?.name || "plan"} coverage guidelines, we respectfully request approval for ${service}.
 
 Provider Signature: _______________________
 Date: ${new Date().toLocaleDateString()}`;
@@ -1134,6 +1314,8 @@ Date: ${new Date().toLocaleDateString()}`;
         }
 
         function clearForm() {
+            document.getElementById("payer").value = "";
+            document.getElementById("planType").value = "";
             document.getElementById("serviceType").value = "";
             document.getElementById("serviceName").value = "";
             document.getElementById("diagnosis").value = "";
