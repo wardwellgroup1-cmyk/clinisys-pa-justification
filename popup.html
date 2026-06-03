@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prior Auth Copilot</title>
+  <style>
+    :root {
+      --bg: #050816;
+      --bg-alt: #0b1020;
+      --card: #111827;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56,189,248,0.15);
+      --accent-strong: rgba(56,189,248,0.35);
+      --border-subtle: rgba(148,163,184,0.35);
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --danger: #f97373;
+      --danger-soft: rgba(248,113,113,0.12);
+      --success: #4ade80;
+      --warning: #facc15;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-pill: 999px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 1000px;
+      min-height: 700px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1f2937 0, #020617 55%, #000 100%);
+      color: var(--text-main);
+    }
+
+    body {
+      margin: 0;
+      padding: 16px;
+    }
+
+    .app-shell {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(145deg, rgba(15,23,42,0.96), rgba(2,6,23,0.98));
+      border-radius: 12px;
+      border: 1px solid rgba(148,163,184,0.35);
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(31,41,55,0.9);
+    }
+
+    .app-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .app-logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: radial-gradient(circle at 30% 0%, #e0f2fe 0, #38bdf8 35%, #0f172a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #0b1120;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .app-title {
+      font-size: 16px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+    }
+
+    .app-title span {
+      background: linear-gradient(to right, #e5e7eb, #bae6fd);
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    .btn-expand {
+      border-radius: 999px;
+      border: 1px solid rgba(56,189,248,0.6);
+      background: rgba(15,23,42,0.9);
+      color: #e5e7eb;
+      font-size: 11px;
+      padding: 4px 9px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-expand span.icon {
+      font-size: 13px;
+    }
+
+    .layout-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 12px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .card {
+      background: radial-gradient(circle at top left, rgba(15,23,42,0.9), rgba(15,23,42,0.98));
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
+      padding: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+      gap: 8px;
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #9ca3af;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-title-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.25);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .form-row-full {
+      grid-column: 1 / -1;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .field-label {
+      font-size: 10px;
+      color: #9ca3af;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .field-label span.req {
+      color: #f97373;
+      margin-left: 2px;
+    }
+
+    select,
+    input[type="text"],
+    input[type="number"],
+    textarea {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid rgba(55,65,81,0.9);
+      background: radial-gradient(circle at top left, #020617, #020617);
+      color: #e5e7eb;
+      padding: 5px 7px;
+      font-size: 11px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    select:focus,
+    input:focus,
+    textarea:focus {
+      border-color: rgba(56,189,248,0.9);
+      box-shadow: 0 0 0 1px rgba(56,189,248,0.5);
+    }
+
+    select {
+      appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, #6b7280 50%),
+        linear-gradient(135deg, #6b7280 50%, transparent 50%);
+      background-position: calc(100% - 10px) 8px, calc(100% - 6px) 8px;
+      background-size: 4px 4px, 4px 4px;
+      background-repeat: no-repeat;
+      padding-right: 20px;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+      max-height: 120px;
+      line-height: 1.3;
+    }
+
+    .chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 2px;
+    }
+
+    .chip {
+      font-size: 10px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.5);
+      color: #9ca3af;
+      background: rgba(15,23,42,0.9);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .chip.active {
+      border-color: rgba(56,189,248,0.9);
+      color: #e5e7eb;
+      box-shadow: 0 0 0 1px rgba(56,189,248,0.5);
+    }
+
+    .chip-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: #38bdf8;
+    }
+
+    .analyze-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .btn-analyze {
+      border-radius: 999px;
+      border: none;
+      padding: 5px 11px;
+      font-size: 11px;
+      font-weight: 550;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: linear-gradient(to right, #38bdf8, #6366f1);
+      color: #020617;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(15,23,42,0.8);
+    }
+
+    .btn-secondary {
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.6);
+      background: rgba(15,23,42,0.9);
+      color: #e5e7eb;
+      font-size: 10px;
+      padding: 3px 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    .score-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(148,163,184,0.5);
+      font-size: 10px;
+      margin-bottom: 6px;
+    }
+
+    .score-value {
+      font-size: 16px;
+      font-weight: 650;
+    }
+
+    .score-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .score-badge {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.5);
+    }
+
+    .score-badge.good {
+      border-color: rgba(34,197,94,0.8);
+      color: #bbf7d0;
+      background: rgba(22,163,74,0.15);
+    }
+
+    .score-badge.fair {
+      border-color: rgba(250,204,21,0.8);
+      color: #fef9c3;
+      background: rgba(234,179,8,0.15);
+    }
+
+    .score-badge.poor {
+      border-color: rgba(248,113,113,0.8);
+      color: #fee2e2;
+      background: rgba(248,113,113,0.15);
+    }
+
+    .list-section {
+      margin-top: 6px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: radial-gradient(circle at top left, rgba(15,23,42,0.9), rgba(15,23,42,0.98));
+      border: 1px solid rgba(31,41,55,0.9);
+    }
+
+    .list-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #9ca3af;
+      margin-bottom: 2px;
+    }
+
+    .list-body {
+      font-size: 11px;
+      color: #e5e7eb;
+      line-height: 1.3;
+    }
+
+    .list-body ul {
+      margin: 2px 0 0;
+      padding-left: 14px;
+    }
+
+    .list-body li {
+      margin-bottom: 1px;
+    }
+
+    .list-empty {
+      font-size: 11px;
+      color: #6b7280;
+      font-style: italic;
+    }
+
+    .note-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      gap: 6px;
+    }
+
+    .note-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #9ca3af;
+    }
+
+    .note-toolbar-right {
+      display: flex;
+      gap: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="app-header">
+      <div class="app-title-row">
+        <div class="app-logo">PA</div>
+        <div class="app-title"><span>Prior Auth Copilot</span></div>
+      </div>
+      <button class="btn-expand" id="btnExpand" title="Open in full window">
+        <span class="icon">⛶</span>
+        <span>Expand</span>
+      </button>
+    </div>
+
+    <div class="layout-grid">
+      <!-- LEFT: Patient & clinical inputs -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-dot"></span>
+            <span>Patient Context</span>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="field">
+            <label class="field-label"><span>Payer<span class="req">*</span></span></label>
+            <select id="payer">
+              <option value="">Select payer</option>
+              <option>Medicare Advantage</option>
+              <option>Commercial – Aetna</option>
+              <option>Commercial – BCBS</option>
+              <option>Medicaid Managed Care</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label"><span>Plan type</span></label>
+            <select id="planType">
+              <option value="">Not specified</option>
+              <option>HMO</option>
+              <option>PPO</option>
+              <option>EPO</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label"><span>Service<span class="req">*</span></span></label>
+            <select id="serviceName">
+              <option value="">Select service</option>
+              <option value="MRI_LS">MRI Lumbar Spine</option>
+              <option value="MRI_CERV">MRI Cervical Spine</option>
+              <option value="CT_ABD">CT Abdomen/Pelvis</option>
+              <option value="US_PELVIC">Pelvic ultrasound</option>
+              <option value="KNEE_ARTHRO">Knee arthroscopy</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label"><span>ICD-10<span class="req">*</span></span></label>
+            <input type="text" id="icd10" placeholder="e.g., M54.16" />
+          </div>
+
+          <div class="field">
+            <label class="field-label"><span>Age</span></label>
+            <input type="number" id="age" min="0" max="120" placeholder="e.g., 62" />
+          </div>
+
+          <div class="field">
+            <label class="field-label"><span>Weeks</span></label>
+            <input type="number" id="symptomWeeks" min="0" max="520" placeholder="Symptom duration" />
+          </div>
+
+          <div class="field form-row-full">
+            <label class="field-label"><span>Conservative care</span></label>
+            <div class="chips-row" id="conservativeCareChips">
+              <button type="button" class="chip" data-care="PT"><span class="chip-dot"></span>PT</button>
+              <button type="button" class="chip" data-care="NSAID"><span class="chip-dot"></span>NSAIDs</button>
+              <button type="button" class="chip" data-care="INJECTION"><span class="chip-dot"></span>Injection</button>
+              <button type="button" class="chip" data-care="HOME"><span class="chip-dot"></span>Home</button>
+            </div>
+          </div>
+
+          <div class="field form-row-full">
+            <label class="field-label"><span>Red flags</span></label>
+            <div class="chips-row" id="redFlagChips">
+              <button type="button" class="chip" data-flag="CAUDA"><span class="chip-dot"></span>Cauda</button>
+              <button type="button" class="chip" data-flag="PROG_WEAK"><span class="chip-dot"></span>Weakness</button>
+              <button type="button" class="chip" data-flag="FEVER_WEIGHT"><span class="chip-dot"></span>Fever/Wt</button>
+              <button type="button" class="chip" data-flag="CANCER"><span class="chip-dot"></span>Cancer</button>
+              <button type="button" class="chip" data-flag="TRAUMA"><span class="chip-dot"></span>Trauma</button>
+            </div>
+          </div>
+
+          <div class="field form-row-full">
+            <label class="field-label"><span>Clinical notes</span></label>
+            <textarea id="clinicalDetails" placeholder="Brief clinical summary..."></textarea>
+          </div>
+        </div>
+
+        <div class="analyze-row">
+          <button class="btn-secondary" id="btnClear" title="Clear form">Clear</button>
+          <button class="btn-analyze" id="btnAnalyze">
+            <span class="icon">🔍</span>
+            <span>Analyze</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- RIGHT: Analysis & Note -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-dot"></span>
+            <span>Analysis & Note</span>
+          </div>
+        </div>
+
+        <div class="score-pill">
+          <div>
+            <div class="score-label">Approval %</div>
+            <div class="score-value" id="scoreValue">–%</div>
+          </div>
+          <div id="scoreBadge" class="score-badge">Pending</div>
+        </div>
+
+        <div class="list-section">
+          <div class="list-title">Red Flags</div>
+          <div class="list-body" id="redFlagList">
+            <div class="list-empty">Run analysis</div>
+          </div>
+        </div>
+
+        <div class="list-section">
+          <div class="list-title">Conservative Care</div>
+          <div class="list-body" id="conservativeList">
+            <div class="list-empty">Run analysis</div>
+          </div>
+        </div>
+
+        <div class="list-section">
+          <div class="list-title">Gaps & Risks</div>
+          <div class="list-body" id="gapList">
+            <div class="list-empty">Run analysis</div>
+          </div>
+        </div>
+
+        <div class="note-toolbar" style="margin-top: 8px;">
+          <div class="note-title">Justification Note</div>
+          <div class="note-toolbar-right">
+            <button class="btn-secondary" id="btnCopyNote">📋 Copy</button>
+            <button class="btn-secondary" id="btnDownloadNote">⬇️ Download</button>
+          </div>
+        </div>
+
+        <textarea id="noteText" placeholder="Justification note will appear here." style="min-height: 100px;"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
