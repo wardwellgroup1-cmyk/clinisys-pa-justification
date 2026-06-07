@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="ACO Privia Command Center - Patient Performance Dashboard" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>ACO Privia Command Center</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    /* ============================================
+       DESIGN SYSTEM & PRIVIA BLUE-GREEN GRAPHICS
+       ============================================ */
+    :root {
+      --bg: #0f172a;
+      --bg-soft: #020617;
+      --card: #0b1329;
+      --border: #1e293b;
+      --accent: #10b981; /* Privia Green look */
+      --accent-blue: #0ea5e9; /* Privia Blue look */
+      --accent-soft: rgba(16, 185, 129, 0.1);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --muted: #64748b;
+      --danger: #ef4444;
+      --danger-soft: rgba(239, 68, 68, 0.15);
+      --warn: #f59e0b;
+      --warn-soft: rgba(245, 158, 11), 0.15);
+      --success: #10b981;
+      --success-soft: rgba(16, 185, 129, 0.15);
+      --radius: 12px;
+      --transition: all 0.2s ease-out;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1e293b 0, #020617 60%, #000 100%);
+      color: var(--text);
+      background-attachment: fixed;
+      min-height: 100vh;
+    }
+
+    button { font-family: inherit; cursor: pointer; border: none; transition: var(--transition); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    input, select, textarea { font-family: inherit; transition: var(--transition); }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-blue) !important; box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2); }
+
+    /* LAYOUT */
+    .app-shell { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+
+    .sidebar {
+      border-right: 1px solid var(--border);
+      padding: 20px 16px;
+      background: linear-gradient(to bottom, #0f172a, #020617);
+    }
+
+    .main { padding: 24px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+
+    /* COMPONENTS */
+    .sidebar-title { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .sidebar-logo { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #0ea5e9, #10b981); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 16px; }
+    .sidebar-text div:first-child { font-size: 14px; font-weight: 700; color: #fff; }
+    .sidebar-text div:last-child { font-size: 11px; color: var(--muted); }
+
+    .nav-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 20px 4px 8px; font-weight: 700; }
+    .nav-btn { border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--text-muted); background: transparent; text-align: left; display: flex; align-items: center; gap: 10px; width: 100%; margin-bottom: 4px; }
+    .nav-btn:hover, .nav-btn.active { background: rgba(14, 165, 233, 0.1); color: #fff; }
+    .nav-btn.active { border-left: 3px solid var(--accent-blue); padding-left: 9px; font-weight: 600; }
+
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .topbar-left h1 { margin: 0 0 4px; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+    .topbar-sub { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+    /* CARD GRID */
+    .grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .card { border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); padding: 16px; transition: var(--transition); }
+    .card:hover { border-color: var(--border); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+    .card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; }
+    .card-value { font-size: 28px; font-weight: 700; color: #fff; }
+    .card-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    /* FILTERS BAR */
+    .controls-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: rgba(30, 41, 59, 0.3); padding: 12px; border-radius: var(--radius); border: 1px solid var(--border); }
+    .site-pills { display: flex; gap: 6px; }
+    .site-pill { border-radius: 20px; border: 1px solid var(--border); padding: 6px 14px; font-size: 12px; color: var(--text-muted); background: rgba(15, 23, 42, 0.6); }
+    .site-pill:hover { color: #fff; border-color: var(--text-muted); }
+    .site-pill.active { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); font-weight: 600; }
+
+    .search-input { border-radius: 20px; border: 1px solid var(--border); background: #0f172a; color: #fff; padding: 6px 16px; font-size: 13px; width: 240px; }
+
+    /* DATA PANEL & TABLES */
+    .panel { border-radius: var(--radius); border: 1px solid var(--border); background: rgba(15, 23, 42, 0.8); padding: 16px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .panel-title { font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 700; }
+
+    .table-wrapper { border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; background: #020617; }
+    .table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+    .table th { padding: 12px 10px; color: var(--text-muted); background: rgba(15, 23, 42, 0.9); font-weight: 600; border-bottom: 2px solid var(--border); font-size: 11px; text-transform: uppercase; }
+    .table td { padding: 12px 10px; border-bottom: 1px solid rgba(30, 41, 59, 0.6); vertical-align: middle; }
+    .table tbody tr:hover td { background: rgba(30, 41, 59, 0.2); }
+
+    /* ACTION COMPONENT BADGES & BUTTONS */
+    .badge-status { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; text-align: center; border: 1px solid transparent; }
+    .status-due { background: var(--danger-soft); color: var(--danger); border-color: rgba(239, 68, 68, 0.3); }
+    .status-done { background: var(--success-soft); color: var(--success); border-color: rgba(16, 185, 129, 0.3); }
+    .status-pending { background: rgba(245, 158, 11, 0.1); color: var(--warn); border-color: rgba(245, 158, 11, 0.3); }
+    .status-na { background: rgba(148, 163, 184, 0.1); color: var(--muted); }
+
+    /* RAF / HCC ACTION BOXES */
+    .raf-container { display: flex; flex-direction: column; gap: 4px; min-width: 170px; }
+    .raf-row { display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.6); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); }
+    .raf-code { font-family: monospace; font-weight: 700; color: #fff; font-size: 11px; }
+    .raf-actions { display: flex; gap: 4px; }
+    .btn-raf { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; }
+    .btn-accept { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
+    .btn-accept:hover { background: var(--success); color: #000; }
+    .btn-deny { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+    .btn-deny:hover { background: var(--danger); color: #fff; }
+    .raf-outcome { font-size: 10px; font-weight: 700; padding: 2px 4px; border-radius: 4px; text-transform: uppercase;}
+    .raf-accepted { color: var(--success); }
+    .raf-denied { color: var(--danger); text-decoration: line-through; opacity: 0.6; }
+
+    /* TOAST NOTIFICATION */
+    .toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; border-radius: 30px; background: rgba(15, 23, 42, 0.95); border: 1px solid var(--accent-blue); font-size: 13px; display: none; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(8px); animation: slideUp 0.2s ease-out; }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .btn-action { border-radius: 6px; font-size: 11px; font-weight: 600; padding: 6px 10px; border: 1px solid var(--border); background: #0f172a; color: #fff; display: inline-flex; align-items: center; gap: 4px; }
+    .btn-action:hover { border-color: var(--accent-blue); background: var(--accent-blue); color: #fff; }
+  </style>
+</head>
+<body>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-title">
+      <div class="sidebar-logo">P</div>
+      <div class="sidebar-text">
+        <div>ACO Privia</div>
+        <div>Command Center</div>
+      </div>
+    </div>
+
+    <div class="nav-section-label">Performance Tracks</div>
+    <nav class="sidebar-nav">
+      <button class="nav-btn active" data-view="all">
+        <span>📋</span> <span>All Site Panel</span>
+      </button>
+      <button class="nav-btn" data-view="awv">
+        <span>📅</span> <span>AWV Opportunities</span>
+      </button>
+      <button class="nav-btn" data-view="raf">
+        <span>🧮</span> <span>RAF / HCC Coding</span>
+      </button>
+      <button class="nav-btn" data-view="tcm">
+        <span>🚨</span> <span>7-Day TCM Track</span>
+      </button>
+      <button class="nav-btn" data-view="ccm">
+        <span>💊</span> <span>CCM Care Gaps</span>
+      </button>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1 id="view-title">ACO Privia Master Registry</h1>
+        <div class="topbar-sub">
+          <div class="status-dot"></div>
+          <span>Privia Health Network Live Sync: Active Performance Window</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-cards">
+      <div class="card">
+        <div class="card-label">Total ACO Patients</div>
+        <div class="card-value" id="stat-total">0</div>
+        <div class="card-sub">Across Sites A, B, C, D</div>
+      </div>
+      <div class="card">
+        <div class="card-label">AWV Missing</div>
+        <div class="card-value" style="color:var(--danger);" id="stat-awv">0</div>
+        <div class="card-sub">Immediate scheduling required</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Open PAF Actions</div>
+        <div class="card-value" style="color:var(--warn);" id="stat-paf">0</div>
+        <div class="card-sub">Incomplete Assessments</div>
+      </div>
+      <div class="card">
+        <div class="card-label">7-Day TCM Alerts</div>
+        <div class="card-value" style="color:#f87171;" id="stat-tcm">0</div>
+        <div class="card-sub">Discharges needing contact</div>
+      </div>
+      <div class="card">
+        <div class="card-label">CCM Opportunities</div>
+        <div class="card-value" style="color:var(--accent-blue);" id="stat-ccm">0</div>
+        <div class="card-sub">Eligible (&gt;=2 Chronic conditions)</div>
+      </div>
+    </div>
+
+    <div class="controls-row">
+      <div class="site-pills" id="site-filters">
+        <button class="site-pill active" data-site="all">All Clinics</button>
+        <button class="site-pill" data-site="Site A">Site A</button>
+        <button class="site-pill" data-site="Site B">Site B</button>
+        <button class="site-pill" data-site="Site C">Site C</button>
+        <button class="site-pill" data-site="Site D">Site D</button>
+      </div>
+      <input id="search-input" class="search-input" type="search" placeholder="Search patient name or ID..." />
+    </div>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div class="panel-title" id="panel-table-title">Patient Action List</div>
+      </div>
+      <div class="table-wrapper">
+        <table class="table" id="master-table">
+          <thead>
+            <tr>
+              <th>Patient Profile</th>
+              <th>Site</th>
+              <th>AWV Status</th>
+              <th>PAF Status</th>
+              <th>RAF / HCC Coding (ICD-10)</th>
+              <th>CCM Opt-In</th>
+              <th>7-Day TCM Window</th>
+              <th style="text-align: center;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="aco-patient-rows">
+            </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  /**
+   * ============================================
+   * ACO PRIVIA DEMO REGISTRY STATE
+   * ============================================
+   */
+  const AppState = {
+    currentSiteFilter: "all",
+    currentViewFilter: "all", // all, awv, raf, tcm, ccm
+    searchQuery: "",
+
+    patients: [
+      {
+        id: "P101",
+        name: "Eleanor Vance",
+        age: 74,
+        phone: "(555) 234-8901",
+        site: "Site A",
+        awvDue: true,
+        pafComplete: false,
+        rafCodes: [
+          { code: "E11.9 (Type 2 DM)", status: "pending" },
+          { code: "I50.9 (Heart Failure)", status: "pending" }
+        ],
+        ccmOpportunity: true,
+        tcmDue7Days: true,
+        tcmDischargeDate: "2026-06-03" // Within 7 days of context
+      },
+      {
+        id: "P102",
+        name: "Arthur Pendelton",
+        age: 68,
+        phone: "(555) 876-5432",
+        site: "Site A",
+        awvDue: false,
+        pafComplete: true,
+        rafCodes: [
+          { code: "I10 (Essential HTN)", status: "accepted" }
+        ],
+        ccmOpportunity: false,
+        tcmDue7Days: false,
+        tcmDischargeDate: null
+      },
+      {
+        id: "P103",
+        name: "Maria Rodriguez",
+        age: 81,
+        phone: "(555) 456-1122",
+        site: "Site B",
+        awvDue: true,
+        pafComplete: false,
+        rafCodes: [
+          { code: "J44.9 (COPD)", status: "pending" },
+          { code: "I25.10 (CAD)", status: "pending" }
+        ],
+        ccmOpportunity: true,
+        tcmDue7Days: false,
+        tcmDischargeDate: null
+      },
+      {
+        id: "P104",
+        name: "James Hudson",
+        age: 72,
+        phone: "(555) 901-3344",
+        site: "Site C",
+        awvDue: false,
+        pafComplete: false,
+        rafCodes: [
+          { code: "E11.65 (DM w/ Hyperglycemia)", status: "pending" }
+        ],
+        ccmOpportunity: true,
+        tcmDue7Days: true,
+        tcmDischargeDate: "2026-06-05"
+      },
+      {
+        id: "P105",
+        name: "Clara Sterling",
+        age: 79,
+        phone: "(555) 303-4958",
+        site: "Site D",
+        awvDue: true,
+        pafComplete: true,
+        rafCodes: [
+          { code: "F32.9 (Depression)", status: "accepted" }
+        ],
+        ccmOpportunity: true,
+        tcmDue7Days: false,
+        tcmDischargeDate: null
+      }
+    ]
+  };
+
+  /**
+   * ============================================
+   * ENGINE CORE OPERATIONS
+   * ============================================
+   */
+
+  function showNotification(text) {
+    const toast = document.getElementById("toast");
+    toast.textContent = text;
+    toast.style.display = "block";
+    setTimeout(() => { toast.style.display = "none"; }, 2500);
+  }
+
+  function recalculateAcoMetrics() {
+    const data = AppState.patients;
+    document.getElementById("stat-total").textContent = data.length;
+    document.getElementById("stat-awv").textContent = data.filter(p => p.awvDue).length;
+    document.getElementById("stat-paf").textContent = data.filter(p => !p.pafComplete).length;
+    document.getElementById("stat-tcm").textContent = data.filter(p => p.tcmDue7Days).length;
+    document.getElementById("stat-ccm").textContent = data.filter(p => p.ccmOpportunity).length;
+  }
+
+  function processRafAction(patientId, codeText, statusUpdate) {
+    const patient = AppState.patients.find(p => p.id === patientId);
+    if (patient) {
+      const codeObject = patient.rafCodes.find(c => c.code === codeText);
+      if (codeObject) {
+        codeObject.status = statusUpdate;
+        showNotification(`${statusUpdate === 'accepted' ? 'Accepted' : 'Denied'} HCC Code ${codeText} for ${patient.name}`);
+        recalculateAcoMetrics();
+        renderRegistryTable();
+      }
+    }
+  }
+
+  function triggerCallSim(name, num) {
+    showNotification(`Dialing ${name} at ${num} via integrated line...`);
+  }
+
+  /**
+   * ============================================
+   * VIEW CONTROLLER RENDERING
+   * ============================================
+   */
+  function renderRegistryTable() {
+    const tableBody = document.getElementById("aco-patient-rows");
+    tableBody.innerHTML = "";
+
+    // Filter by Site dropdown/pills
+    let filtered = AppState.patients.filter(p => {
+      return AppState.currentSiteFilter === "all" || p.site === AppState.currentSiteFilter;
+    });
+
+    // Filter by Track View (Left Sidebar Selection)
+    filtered = filtered.filter(p => {
+      if (AppState.currentViewFilter === "all") return true;
+      if (AppState.currentViewFilter === "awv") return p.awvDue;
+      if (AppState.currentViewFilter === "raf") return p.rafCodes.some(c => c.status === "pending");
+      if (AppState.currentViewFilter === "tcm") return p.tcmDue7Days;
+      if (AppState.currentViewFilter === "ccm") return p.ccmOpportunity;
+      return true;
+    });
+
+    // Filter by String Query Match
+    if (AppState.searchQuery) {
+      const query = AppState.searchQuery.toLowerCase();
+      filtered = filtered.filter(p => p.name.toLowerCase().includes(query) || p.id.toLowerCase().includes(query));
+    }
+
+    if (filtered.length === 0) {
+      tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 30px; color: var(--muted);">No matching patient records found in this track parameters.</td></tr>`;
+      return;
+    }
+
+    filtered.forEach(p => {
+      const row = document.createElement("tr");
+
+      // 1. Patient Profile
+      const profileCell = `
+        <td>
+          <strong>${p.name}</strong><br>
+          <span style="color:var(--text-muted); font-size:11px;">ID: ${p.id} &middot; Age: ${p.age}</span>
+        </td>`;
+
+      // 2. Site
+      const siteCell = `<td><span style="font-weight:600; color:#fff;">${p.site}</span></td>`;
+
+      // 3. AWV Due
+      const awvCell = `
+        <td>
+          <span class="badge-status ${p.awvDue ? 'status-due' : 'status-done'}">
+            ${p.awvDue ? '⚠️ AWV DUE' : '✓ COMPLETED'}
+          </span>
+        </td>`;
+
+      // 4. PAF Status
+      const pafCell = `
+        <td>
+          <span class="badge-status ${p.pafComplete ? 'status-done' : 'status-pending'}">
+            ${p.pafComplete ? '✓ PAF DONE' : '⚡ OPEN PAF'}
+          </span>
+        </td>`;
+
+      // 5. RAF / HCC Coding Complex UI
+      let rafInterfaceHtml = `<div class="raf-container">`;
+      if (p.rafCodes && p.rafCodes.length > 0) {
+        p.rafCodes.forEach(rc => {
+          rafInterfaceHtml += `<div class="raf-row">
+            <span class="raf-code" title="${rc.code}">${rc.code}</span>`;
+
+          if (rc.status === "pending") {
+            rafInterfaceHtml += `
+              <div class="raf-actions">
+                <button class="btn-raf btn-accept" onclick="processRafAction('${p.id}', '${rc.code}', 'accepted')">Accept</button>
+                <button class="btn-raf btn-deny" onclick="processRafAction('${p.id}', '${rc.code}', 'denied')">Deny</button>
+              </div>`;
+          } else {
+            rafInterfaceHtml += `<span class="raf-outcome raf-${rc.status}">${rc.status}</span>`;
+          }
+          rafInterfaceHtml += `</div>`;
+        });
+      } else {
+        rafInterfaceHtml += `<span class="status-na">— No Recaptures —</span>`;
+      }
+      rafInterfaceHtml += `</div>`;
+      const rafCell = `<td>${rafInterfaceHtml}</td>`;
+
+      // 6. CCM Opportunity
+      const ccmCell = `
+        <td>
+          <span class="badge-status ${p.ccmOpportunity ? 'status-due' : 'status-na'}" style="${p.ccmOpportunity ? 'color: var(--accent-blue); background: rgba(14,165,233,0.1); border-color: rgba(14,165,233,0.3);' : ''}">
+            ${p.ccmOpportunity ? '🚀 ELIGIBLE' : 'NOT ELIGIBLE'}
+          </span>
+        </td>`;
+
+      // 7. Transitional Care Management (TCM) Within 7 Days Alert
+      let tcmContent = `<span class="badge-status status-na">Routine</span>`;
+      if (p.tcmDue7Days) {
+        tcmContent = `
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span class="badge-status status-due" style="font-size:10px;">🚨 TCM OUTREACH DUE</span>
+            <span style="font-size:10px; color:var(--warn); font-weight:600;">Discharged: ${p.tcmDischargeDate}</span>
+          </div>`;
+      }
+      const tcmCell = `<td>${tcmContent}</td>`;
+
+      // 8. Outreach Quick Trigger
+      const actionCell = `
+        <td style="text-align:center;">
+          <button class="btn-action" onclick="triggerCallSim('${p.name}', '${p.phone}')" title="Initiate Outreach Call">
+            📞 <span>Call Patient</span>
+          </button>
+        </td>`;
+
+      row.innerHTML = profileCell + siteCell + awvCell + pafCell + rafCell + ccmCell + tcmCell + actionCell;
+      tableBody.appendChild(row);
+    });
+  }
+
+  /**
+   * ============================================
+   * CONTROLLERS & INITIALIZATION INTERFACE
+   * ============================================
+   */
+  function initAcoDashboard() {
+    // Left Sidebar Navigation Tracking
+    document.querySelectorAll(".nav-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        AppState.currentViewFilter = btn.dataset.view;
+
+        // Update Title context dynamically
+        const viewTitles = {
+          all: "ACO Privia Master Registry",
+          awv: "ACO Performance Track: AWV Opportunities",
+          raf: "Risk Adjustment Track: HCC Coding Verification",
+          tcm: "Transitional Care Track: Critical 7-Day TCM Windows",
+          ccm: "Chronic Care Track: Clinical Billing Revenue Opportunities"
+        };
+        document.getElementById("view-title").textContent = viewTitles[btn.dataset.view] || "Registry";
+        document.getElementById("panel-table-title").textContent = `${btn.dataset.view.toUpperCase()} Action Queue`;
+
+        renderRegistryTable();
+      });
+    });
+
+    // Site Pills Filter Tracking
+    document.querySelectorAll(".site-pill").forEach(pill => {
+      pill.addEventListener("click", () => {
+        document.querySelectorAll(".site-pill").forEach(p => p.classList.remove("active"));
+        pill.classList.add("active");
+
+        AppState.currentSiteFilter = pill.dataset.site;
+        renderRegistryTable();
+      });
+    });
+
+    // Text Search Action
+    document.getElementById("search-input").addEventListener("input", (e) => {
+      AppState.searchQuery = e.target.value;
+      renderRegistryTable();
+    });
+
+    // Run Calculation and Render Initial Grid
+    recalculateAcoMetrics();
+    renderRegistryTable();
+  }
+
+  document.addEventListener("DOMContentLoaded", initAcoDashboard);
+</script>
+</body>
+</html>
