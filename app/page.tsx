@@ -109,11 +109,16 @@ export default function Page() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <div className="mx-auto max-w-5xl px-4 py-8">
         <header className="mb-6 border-b border-slate-200 pb-4">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            CliniSys Prior Auth Justification
-          </h1>
+          <div className="flex items-baseline gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight text-blue-700">
+              nycal<span className="text-slate-900">.ai</span>
+            </h1>
+            <span className="text-sm font-medium text-slate-500">
+              Prior Auth Justification
+            </span>
+          </div>
           <p className="mt-1 text-sm text-slate-600">
-            Generate payer-ready medical necessity in under 3 minutes.
+            Generate payer-ready medical necessity documentation in under 3 minutes.
           </p>
         </header>
 

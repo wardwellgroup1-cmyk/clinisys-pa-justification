@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'CliniSys Prior Auth Justification',
+  title: 'nycal.ai — Prior Auth Justification',
   description: 'Generate payer-ready medical necessity documentation in under 3 minutes',
 };
 

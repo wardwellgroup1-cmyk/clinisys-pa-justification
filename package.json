@@ -1,7 +1,7 @@
 {
-  "name": "clinisys-pa-justification",
+  "name": "nycal-ai",
   "version": "1.0.0",
-  "description": "CliniSys Prior Authorization Justification - Generate payer-ready medical necessity in under 3 minutes",
+  "description": "nycal.ai Prior Authorization Justification - Generate payer-ready medical necessity in under 3 minutes",
   "private": true,
   "scripts": {
     "dev": "next dev",

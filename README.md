@@ -1,4 +1,4 @@
-# CliniSys Prior Auth Justification
+# nycal.ai — Prior Auth Justification
 
 Generate payer-ready medical necessity documentation in under 3 minutes.
 
@@ -14,7 +14,7 @@ Generate payer-ready medical necessity documentation in under 3 minutes.
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 
 ### Installation
@@ -50,7 +50,7 @@ Or connect your GitHub repo to Vercel for automatic deployments on push.
 
 ## Technology Stack
 
-- **Next.js 14** - React framework
+- **Next.js 14** - React framework (App Router)
 - **TypeScript** - Type safety
 - **Tailwind CSS** - Styling
 - **React Hooks** - State management
